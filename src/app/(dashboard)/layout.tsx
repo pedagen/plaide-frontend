@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { 
   Folder, 
   Plus, 
@@ -10,11 +10,11 @@ import {
   LogOut, 
   Menu, 
   X,
-  Star,
-  Trash2,
-  HelpCircle
+  HelpCircle,
+  Loader2
 } from 'lucide-react'
-import { Logo, Button } from '@/components/ui'
+import { Logo } from '@/components/ui'
+import { authAPI, User } from '@/lib/api'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -22,19 +22,62 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Vérifier l'authentification au chargement
+  useEffect(() => {
+    const checkAuth = async () => {
+      const hasToken = authAPI.initFromStorage()
+      
+      if (!hasToken) {
+        router.push('/login')
+        return
+      }
+
+      try {
+        const profile = await authAPI.getProfile()
+        setUser(profile)
+      } catch (error) {
+        // Token invalide, rediriger vers login
+        authAPI.logout()
+        router.push('/login')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  const handleLogout = () => {
+    authAPI.logout()
+    router.push('/login')
+  }
 
   const navigation = [
     { name: 'Mes dossiers', href: '/dashboard', icon: Folder },
     { name: 'Nouveau dossier', href: '/dashboard/new', icon: Plus },
-    { name: 'Favoris', href: '/dashboard/favorites', icon: Star },
-    { name: 'Corbeille', href: '/dashboard/trash', icon: Trash2 },
   ]
 
   const secondaryNav = [
     { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
     { name: 'Aide', href: '/dashboard/help', icon: HelpCircle },
   ]
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mx-auto mb-4" />
+          <p className="text-white/50">Chargement...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -115,13 +158,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="p-4 border-t border-white/5">
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center font-bold">
-                U
+                {user?.full_name?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Utilisateur</p>
-                <p className="text-xs text-white/40 truncate">user@email.com</p>
+                <p className="text-sm font-medium truncate">{user?.full_name || 'Utilisateur'}</p>
+                <p className="text-xs text-white/40 truncate">{user?.email || ''}</p>
               </div>
-              <button className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-white/70">
+              <button 
+                onClick={handleLogout}
+                className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-white/70"
+                title="Déconnexion"
+              >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>

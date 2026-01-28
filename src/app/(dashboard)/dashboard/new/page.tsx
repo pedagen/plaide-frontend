@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Briefcase } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Briefcase, User, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { Button, Card, Input, DropZone } from '@/components/ui'
+import { dossiersAPI, piecesAPI, analyzeAPI, APIError } from '@/lib/api'
 
 const caseTypes = [
   { id: 'travail', name: 'Droit du travail', icon: '👔', description: 'Licenciement, harcèlement, contrat...' },
@@ -18,26 +19,51 @@ const caseTypes = [
 export default function NewDossierPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
-  const [name, setName] = useState('')
+  const [titre, setTitre] = useState('')
+  const [clientNom, setClientNom] = useState('')
   const [type, setType] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [isCreating, setIsCreating] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
+  const [error, setError] = useState('')
 
   const handleCreate = async () => {
-    if (!name || !type) return
+    if (!titre || !clientNom || !type) return
 
     setIsCreating(true)
+    setError('')
+
     try {
-      // TODO: Implement API call
-      console.log('Creating dossier:', { name, type, files })
-      
-      // Simulate creation
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      router.push('/dashboard')
-    } catch (error) {
-      console.error('Error creating dossier:', error)
-    } finally {
+      // 1. Créer le dossier
+      const dossier = await dossiersAPI.create({
+        titre,
+        client_nom: clientNom,
+        type_affaire: type,
+      })
+
+      // 2. Upload les fichiers si présents
+      if (files.length > 0) {
+        setUploadProgress({ current: 0, total: files.length })
+        
+        for (let i = 0; i < files.length; i++) {
+          await piecesAPI.upload(dossier.id, files[i])
+          setUploadProgress({ current: i + 1, total: files.length })
+        }
+      }
+
+      // 3. Lancer l'analyse si des fichiers ont été uploadés
+      if (files.length > 0) {
+        await analyzeAPI.start(dossier.id)
+      }
+
+      // 4. Rediriger vers le dossier
+      router.push(`/dossier/${dossier.id}`)
+    } catch (err) {
+      if (err instanceof APIError) {
+        setError(err.message)
+      } else {
+        setError('Une erreur est survenue lors de la création du dossier')
+      }
       setIsCreating(false)
     }
   }
@@ -82,6 +108,13 @@ export default function NewDossierPage() {
         ))}
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl mb-6 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Step 1: Info */}
       {step === 1 && (
         <Card padding="lg">
@@ -91,11 +124,19 @@ export default function NewDossierPage() {
           
           <div className="space-y-6">
             <Input
-              label="Nom du dossier"
-              placeholder="Ex: Dupont c/ TechCorp - Licenciement"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              label="Titre du dossier"
+              placeholder="Ex: Licenciement abusif"
+              value={titre}
+              onChange={(e) => setTitre(e.target.value)}
               leftIcon={<Briefcase className="w-5 h-5" />}
+            />
+
+            <Input
+              label="Nom du client"
+              placeholder="Ex: M. Jean Dupont"
+              value={clientNom}
+              onChange={(e) => setClientNom(e.target.value)}
+              leftIcon={<User className="w-5 h-5" />}
             />
 
             <div>
@@ -127,7 +168,7 @@ export default function NewDossierPage() {
           <div className="flex justify-end mt-8">
             <Button
               onClick={() => setStep(2)}
-              disabled={!name || !type}
+              disabled={!titre || !clientNom || !type}
               rightIcon={<ArrowRight className="w-5 h-5" />}
             >
               Continuer
@@ -176,8 +217,13 @@ export default function NewDossierPage() {
           
           <div className="space-y-4">
             <div className="p-4 bg-white/5 rounded-xl">
-              <p className="text-white/50 text-sm mb-1">Nom du dossier</p>
-              <p className="font-medium">{name}</p>
+              <p className="text-white/50 text-sm mb-1">Titre du dossier</p>
+              <p className="font-medium">{titre}</p>
+            </div>
+
+            <div className="p-4 bg-white/5 rounded-xl">
+              <p className="text-white/50 text-sm mb-1">Client</p>
+              <p className="font-medium">{clientNom}</p>
             </div>
             
             <div className="p-4 bg-white/5 rounded-xl">
@@ -198,20 +244,43 @@ export default function NewDossierPage() {
             </div>
           </div>
 
-          <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl mt-6">
-            <p className="text-sm text-indigo-300">
-              💡 Une fois le dossier créé, l&apos;analyse commencera automatiquement. 
-              Vous recevrez une notification quand ce sera terminé.
-            </p>
-          </div>
+          {/* Upload progress */}
+          {uploadProgress && (
+            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl mt-6">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                <div className="flex-1">
+                  <p className="text-sm text-indigo-300">
+                    Upload en cours... ({uploadProgress.current}/{uploadProgress.total})
+                  </p>
+                  <div className="h-2 bg-white/10 rounded-full mt-2">
+                    <div 
+                      className="h-2 bg-indigo-500 rounded-full transition-all"
+                      style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!uploadProgress && (
+            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl mt-6">
+              <p className="text-sm text-indigo-300">
+                💡 Une fois le dossier créé, l&apos;analyse commencera automatiquement. 
+                Vous recevrez une notification quand ce sera terminé.
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-between mt-8">
-            <Button variant="secondary" onClick={() => setStep(2)}>
+            <Button variant="secondary" onClick={() => setStep(2)} disabled={isCreating}>
               Retour
             </Button>
             <Button
               onClick={handleCreate}
               isLoading={isCreating}
+              disabled={isCreating}
             >
               Créer le dossier
             </Button>

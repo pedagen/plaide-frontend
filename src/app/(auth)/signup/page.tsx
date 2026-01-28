@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Mail, Lock, User, ArrowRight, Check } from 'lucide-react'
 import { Logo, Button, Input, Card } from '@/components/ui'
+import { authAPI, APIError } from '@/lib/api'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -20,15 +21,18 @@ export default function SignupPage() {
     setError('')
 
     try {
-      // TODO: Implement Supabase auth
-      console.log('Signup:', { name, email, password })
-      
-      // Simulate signup
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+      await authAPI.register({
+        email,
+        password,
+        full_name: name,
+      })
       router.push('/dashboard')
     } catch (err) {
-      setError('Une erreur est survenue. Veuillez réessayer.')
+      if (err instanceof APIError) {
+        setError(err.message)
+      } else {
+        setError('Une erreur est survenue. Veuillez réessayer.')
+      }
     } finally {
       setIsLoading(false)
     }

@@ -1,6 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Plaide Frontend
 
-## Getting Started
+Assistant IA pour avocats — Analysez vos dossiers juridiques en 5 minutes au lieu de 5 heures.
+
+## 🚀 Quick Start
+
+```bash
+# Install
+npm install
+
+# Dev
+npm run dev
+
+# Build
+npm run build
+```
+
+## 📁 Structure
+
+```
+src/
+├── app/
+│   ├── page.tsx                    # Landing
+│   ├── (auth)/                     # Login, Signup
+│   └── (dashboard)/
+│       ├── dashboard/              # Liste dossiers
+│       └── dossier/[id]/           # Vue dossier + pièces
+├── components/
+│   ├── ui/                         # Button, Card, Input...
+│   └── dossier/                    # PieceProcessing
+└── lib/
+    ├── api.ts                      # Client API
+    ├── store.ts                    # Zustand
+    └── supabase/                   # Auth
+```
+
+## 🔐 Environment Variables
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
+NEXT_PUBLIC_API_URL=https://api.plaide.app
+```
+
+## 🚀 Deploy to Vercel
+
+### Option 1: Vercel CLI
+```bash
+npm i -g vercel
+vercel login
+vercel
+```
+
+### Option 2: GitHub Integration
+1. Push to GitHub
+2. Import on vercel.com
+3. Add environment variables
+4. Deploy
+
+## 📄 Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page |
+| `/login` | Connexion |
+| `/signup` | Inscription |
+| `/dashboard` | Liste des dossiers |
+| `/dashboard/new` | Créer un dossier |
+| `/dossier/[id]` | Vue dossier (synthèse, chat, timeline, pièces) |
+| `/dossier/[id]/piece/[pieceId]` | Vue pièce détaillée |
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Styling**: Tailwind CSS
+- **State**: Zustand
+- **Auth**: Supabase
+- **Icons**: Lucide React
+
+---
+
+## Getting Started (Next.js default)
 
 First, run the development server:
 
